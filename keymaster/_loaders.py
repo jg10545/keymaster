@@ -4,6 +4,13 @@ import tensorflow as tf
 
 
 def distort(x, outputshape=(128,128)):
+    """
+    Wrapper for tf.raw_ops.ImageProjectiveTransform; scales, shears,
+    and shifts an image.
+    
+    :x: (H,W,3) tensor for the input image
+    :outputshape: tuple for image output size
+    """
     scale_x = tf.random.uniform((), minval=0.8, maxval=1.2)
     scale_y = tf.random.uniform((), minval=0.8, maxval=1.2)
     shear_x = tf.random.uniform((), minval=-0.3, maxval=0.3)
@@ -23,6 +30,13 @@ def distort(x, outputshape=(128,128)):
 
 
 def distorted_pair_dataset(filepaths, num_parallel_calls=6, outputshape=(128,128), filetype="png"):
+    """
+    Build a tensorflow dataset that generates pairs of distorted images
+    :filepaths: list of strings; paths to all images
+    :num_parallel_calls: number of cores for loading/augmenting images
+    :ouputshape: tuple; size of output images
+    :filetype: whether to look for jpg or png images
+    """
     
     def _load_and_distort(x):
         loaded = tf.io.read_file(x)

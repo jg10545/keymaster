@@ -41,7 +41,7 @@ def build_decoder(K, filters=32, batchnorm=True):
         net = tf.keras.layers.Activation("relu")(net)
         net = tf.keras.layers.Conv2D(n, 3, activation="relu", padding="same")(net)
         
-    print("note- using sigmoid instead of linear outputs from paper")
+    # note- using sigmoid instead of linear outputs from paper
     net = tf.keras.layers.Conv2D(3, 3, padding="same", activation="sigmoid")(net)
     return tf.keras.Model(inpt, net)
 
@@ -54,3 +54,18 @@ def _vgg_filter_model():
     vgg = tf.keras.applications.VGG16(weights="imagenet", include_top=False)
     outlayers = [0, 2, 5, 8, 12, 16]
     return tf.keras.Model(vgg.layers[0].input, [vgg.layers[i].output for i in outlayers])
+
+
+
+def compute_l2_loss(*models):
+    """
+    Compute squared L2-norm for all non-batchnorm trainable
+    variables in one or more Keras models
+    """
+    loss = 0
+    for m in models:
+        for v in m.trainable_variables:
+            if "kernel" in v.name:
+                loss += tf.nn.l2_loss(v)
+                
+    return loss

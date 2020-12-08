@@ -5,12 +5,11 @@ from tqdm import tqdm
 import os
 
 from keymaster._models import build_encoder, build_decoder, _vgg_filter_model
+from keymaster._models import compute_l2_loss
 from keymaster._loaders import distorted_pair_dataset
 from keymaster._keypoint import generate_gaussians
 
 def _perceptual_loss(filter_model, orig, recon, weights=[100.0, 1.6, 2.3, 1.8, 2.8, 100.0]):
-    print("using different weights for perceptual loss")
-    weights=[10.0, 1, 1, 1, 1, 1]
     orig_features = filter_model(orig)
     recon_features = filter_model(recon)
     loss = 0
@@ -20,7 +19,9 @@ def _perceptual_loss(filter_model, orig, recon, weights=[100.0, 1.6, 2.3, 1.8, 2
 
 
 def _build_training_step(encoder, poseencoder, decoder, optimizer, 
-                         loss="perceptual", vgg_filter_model=None):
+                         loss="perceptual", vgg_filter_model=None, 
+                         weights=[100.0, 1.6, 2.3, 1.8, 2.8, 100.0],
+                         weightdecay=0):
     @tf.function
     def trainstep(x,y, loss="perceptual"):
         print("tracing training step")
@@ -31,17 +32,40 @@ def _build_training_step(encoder, poseencoder, decoder, optimizer,
             pose_predictions, pose_means = generate_gaussians(pose_features, 0.1)
             reconstruction = decoder(tf.concat([features, pose_predictions], 3), training=True)
         
-            # reconstruction_loss
             if loss == "reconstruction":
                 loss = tf.reduce_mean((y-reconstruction)**2)
             elif loss == "perceptual":
-                loss = _perceptual_loss(vgg_filter_model, y, reconstruction)
+                loss = _perceptual_loss(vgg_filter_model, y, reconstruction,
+                                        weights=weights)
+            if weightdecay > 0:
+                loss += weightdecay*compute_l2_loss(encoder, poseencoder, 
+                                                     decoder)
+            
         
         grads = tape.gradient(loss, allvars)
         optimizer.apply_gradients(zip(grads, allvars))
         return loss
     return trainstep
 
+
+
+def _draw_keypoints_on_image_batch(y, pose_means, rad=10):
+    """
+    
+    """
+    y = y.numpy()
+    H = y.shape[1]
+    W = y.shape[2]
+    assert H == W, "need to update this function for non-square images"
+    mu = ((H/2)*pose_means.numpy()+(H/2)).astype(int) 
+    xx,yy = np.meshgrid(np.arange(H), np.arange(W))
+    for j in range(y.shape[0]):
+        for k in range(mu.shape[1]):
+            nearby = (xx - mu[j,k,1])**2 + (yy - mu[j,k,0])**2 < rad
+            y[j,nearby,0] = 0
+            y[j,nearby,1] = 1
+            y[j,nearby,2] = 0
+    return y
 
 
 
@@ -52,10 +76,19 @@ class Trainer(object):
     
     def __init__(self, K, logdir, trainingdata, imshape=(128,128),
                  batch_size=64, num_parallel_calls=6, losstype="perceptual",
-                 lr=1e-3):
+                 lr=1e-3, weights=[10.0, 1, 1, 1, 1, 1], weightdecay=1e-4):
         """
+        :K: number of keypoints
         :logdir: (string) path to log directory
-        
+        :trainingdata: list of strings; paths to each image in the dataset
+        :imshape: image shape to use
+        :batch_size: batch size for traniing
+        :num_parallel_calls: number of cores to use for loading/preprocessing images
+        :losstype: string; "perceptual" or "reconstruction"
+        :lr: learning rate for Adam optimizer
+        :weights: list of 6 floats- weights to use for each perceptual loss
+            component. See paper for details.
+        :weightdecay: L2 loss applied to model weights
         """
         self.logdir = logdir
         
@@ -79,7 +112,8 @@ class Trainer(object):
         self.trainstep = _build_training_step(encoder, poseencoder, decoder,
                                               optimizer=self.optimizer,
                                               loss=losstype, 
-                                              vgg_filter_model=vgg_filter_model)
+                                              vgg_filter_model=vgg_filter_model,
+                                              weightdecay=weightdecay)
         self.models = {"encoder":encoder, "decoder":decoder, 
                        "poseencoder":poseencoder}
         
@@ -123,9 +157,14 @@ class Trainer(object):
         features = self.models["encoder"](self._batchx)
         pose_features = self.models["poseencoder"](self._batchy)
         pose_predictions, pose_means = generate_gaussians(pose_features, 0.1)
-        reconstruction = self.models["decoder"](tf.concat([features, pose_predictions], 3))
-        alltogether = tf.concat([self._batchx, self._batchy, reconstruction], 2)
-        self._record_images(reconstruction=alltogether)
+        reconstruction = self.models["decoder"](tf.concat([features, 
+                                                           pose_predictions], 3))
+        annotated = _draw_keypoints_on_image_batch(self._batchy, pose_means)
+        
+        alltogether = np.concatenate([self._batchx.numpy(), self._batchy.numpy(),
+                                      annotated, reconstruction.numpy()],
+                                     axis=2)
+        self._record_images(x_y_keypoints_reconstruction=alltogether)
             
     def _record_scalars(self, metric=False, **scalars):
         for s in scalars:
