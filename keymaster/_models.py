@@ -21,7 +21,7 @@ def build_encoder(filters=32, batchnorm=True, poseencoder=False):
         net = tf.keras.layers.Activation("relu")(net)
         
     if poseencoder:
-        net = tf.keras.layers.Conv2D(poseencoder, 1, 1)
+        net = tf.keras.layers.Conv2D(poseencoder, 1, 1)(net)
     return tf.keras.Model(inpt, net)
 
 
@@ -41,5 +41,16 @@ def build_decoder(K, filters=32, batchnorm=True):
         net = tf.keras.layers.Activation("relu")(net)
         net = tf.keras.layers.Conv2D(n, 3, activation="relu", padding="same")(net)
         
-    net = tf.keras.layers.Conv2D(3, 3, padding="same")(net)
+    print("note- using sigmoid instead of linear outputs from paper")
+    net = tf.keras.layers.Conv2D(3, 3, padding="same", activation="sigmoid")(net)
     return tf.keras.Model(inpt, net)
+
+
+
+def _vgg_filter_model():
+    """
+    Return a VGG16 model that outputs all the layers used for perceptual loss
+    """
+    vgg = tf.keras.applications.VGG16(weights="imagenet", include_top=False)
+    outlayers = [0, 2, 5, 8, 12, 16]
+    return tf.keras.Model(vgg.layers[0].input, [vgg.layers[i].output for i in outlayers])
