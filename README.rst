@@ -2,6 +2,17 @@
 keymaster
 =========
 
+.. image:: docs/keymaster.png
+
+Tensorflow 2 implementation of *Unsupervised Learning of Object Landmarks through Conditional Image Generation* by Jakab *et al*.
+
+Paper here: https://arxiv.org/abs/1806.07823
+Original code repo: https://github.com/tomasjakab/imm
+
+
+
+
+
 
 .. image:: https://img.shields.io/pypi/v/keymaster.svg
         :target: https://pypi.python.org/pypi/keymaster
