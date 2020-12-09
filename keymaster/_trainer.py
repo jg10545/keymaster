@@ -74,13 +74,15 @@ class Trainer(object):
     """
     
     
-    def __init__(self, K, logdir, trainingdata, imshape=(128,128),
+    def __init__(self, K, logdir, trainingdata, testdata, imshape=(128,128),
                  batch_size=64, num_parallel_calls=6, losstype="perceptual",
                  lr=1e-3, weights=[10.0, 1, 1, 1, 1, 1], weightdecay=1e-4):
         """
         :K: number of keypoints
         :logdir: (string) path to log directory
         :trainingdata: list of strings; paths to each image in the dataset
+        :testdata: list of strings; a batch of images to use for out-of-sample
+            visualization in tensorboard
         :imshape: image shape to use
         :batch_size: batch size for traniing
         :num_parallel_calls: number of cores to use for loading/preprocessing images
@@ -119,7 +121,9 @@ class Trainer(object):
         
         
         # generate a fixed batch for comparison in tensorboard
-        for x,y in self.ds:
+        testds = distorted_pair_dataset(testdata, outputshape=imshape)
+        testds = testds.batch(batch_size)
+        for x,y in testds:
             self._batchx = x
             self._batchy = y
             break

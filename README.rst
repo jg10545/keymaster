@@ -4,34 +4,19 @@ keymaster
 
 .. image:: docs/keymaster.png
 
-Tensorflow 2 implementation of *Unsupervised Learning of Object Landmarks through Conditional Image Generation* by Jakab *et al*.
+Tensorflow 2 implementation of *Unsupervised Learning of Object Landmarks through Conditional Image Generation* by Jakab *et al*. 
+
+Currently in a very, very rough prototype state.
 
 Paper here: https://arxiv.org/abs/1806.07823
+
 Original code repo: https://github.com/tomasjakab/imm
 
+So far I've tested on pairs of faces (with random scale/shear distortions) from the Flickr faces thumbnails dataset. Example TensorBoard output (from left to right- input x, input y, y with keypoints, and y reconstructed from image x and keypoints from y):
 
-
-
-
-
-.. image:: https://img.shields.io/pypi/v/keymaster.svg
-        :target: https://pypi.python.org/pypi/keymaster
-
-.. image:: https://img.shields.io/travis/jg10545/keymaster.svg
-        :target: https://travis-ci.com/jg10545/keymaster
-
-.. image:: https://readthedocs.org/projects/keymaster/badge/?version=latest
-        :target: https://keymaster.readthedocs.io/en/latest/?badge=latest
-        :alt: Documentation Status
-
-
-
-
-automated keypoint detection
-
+.. image:: docs/tensorboard1.png
 
 * Free software: MIT license
-* Documentation: https://keymaster.readthedocs.io.
 
 
 Features
