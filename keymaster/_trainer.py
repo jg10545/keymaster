@@ -7,7 +7,7 @@ import os
 from keymaster._models import build_encoder, build_decoder, _vgg_filter_model
 from keymaster._models import compute_l2_loss
 from keymaster._loaders import distorted_pair_dataset
-from keymaster._keypoint import generate_gaussians
+from keymaster._keypoint import generate_gaussians, get_keypoints
 
 def _perceptual_loss(filter_model, orig, recon, weights=[100.0, 1.6, 2.3, 1.8, 2.8, 100.0]):
     orig_features = filter_model(orig)
@@ -93,6 +93,7 @@ class Trainer(object):
         :weightdecay: L2 loss applied to model weights
         """
         self.logdir = logdir
+        self.imshape = imshape
         
         if logdir is not None:
             self._file_writer = tf.summary.create_file_writer(logdir, flush_millis=10000)
@@ -195,6 +196,19 @@ class Trainer(object):
         # LR SCHEDULE CASE
         else:
             return self._optimizer.lr(self.step)
+        
+    def get_keypoints(self, img, plot=False):
+        """
+        Compute keypoints for an image. Optionally plot them too.
+        """
+        return get_keypoints(img, self.models["poseencoder"],
+                             plot=plot, size=self.imshape)
+    
+    def __call__(self, img, plot=False):
+        """
+        Wrapper for get_keypoints()
+        """
+        return self.get_keypoints(img, plot)
             
         
     def __del__(self):

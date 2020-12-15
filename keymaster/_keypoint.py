@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
+import numpy as np
+import matplotlib.pyplot as plt
 import tensorflow as tf
+from PIL import Image
 
 
 def _get_coord(x, other_axis, axis_size):
@@ -50,3 +53,40 @@ def generate_gaussians(pose_maps, std=0.1):
     gauss_mu = tf.stack([gauss_y, gauss_x], axis=2)
     gauss_xy_ = _get_gaussian_maps(gauss_mu, pose_maps.shape[1:3], 1.0 /std)
     return gauss_xy_, gauss_mu
+
+
+
+def _load(filepath, size=(128,128)):
+    """
+    PIL wrapper to load an image into a numpy array
+    """
+    return np.array(Image.open(filepath).resize(size, resample=Image.BILINEAR)).astype(np.float32)/255
+
+
+
+def get_keypoints(img, poseencoder, plot=False, size=(128,128)):
+    """
+    Get keypoints for an image
+    
+    :img: filepath to image, or float numpy array containing image (normalized to unit interval)
+    :poseencoder: keras model for pose encoder
+    :plot: whether to plot results
+    :size: if loading image, size to reshape to
+    """
+    # make sure image is loaded, resized, and padded with a batch dimension
+    if isinstance(img, str):
+        img = _load(img, size)
+    if len(img.shape) == 3:
+        img = np.expand_dims(img, 0)
+    # compute keypoint feature and then build gaussian centers from them
+    W = img.shape[1]
+    keypoint_features = poseencoder.predict(img)
+    _, gaussians = generate_gaussians(keypoint_features)
+    gaussians = gaussians.numpy()[0]
+    # rescale to image pixel coords
+    gaussians = (W/2)*gaussians + W/2
+    if plot:
+        plt.imshow(img[0])
+        plt.plot(gaussians[:,1], gaussians[:,0], "o")
+        
+    return gaussians
